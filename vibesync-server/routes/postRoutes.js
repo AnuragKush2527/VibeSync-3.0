@@ -10,10 +10,13 @@ import {
   getUserPost,
   likePost,
   likePostComment,
+  predictSentiment,
   replyPostComment,
 } from "../controllers/postController.js";
 
 const router = express.Router();
+
+router.post("/analyze-sentiment", userAuth, predictSentiment);
 
 // crete post
 router.post("/create-post", userAuth, createPost);

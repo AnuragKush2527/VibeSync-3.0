@@ -1,6 +1,7 @@
 import Comments from "../models/commentModel.js";
 import Posts from "../models/postModel.js";
 import Users from "../models/userModel.js";
+import axios from "axios";
 
 export const createPost = async (req, res, next) => {
   try {
@@ -330,5 +331,20 @@ export const deletePost = async (req, res, next) => {
   } catch (error) {
     console.log(error);
     res.status(404).json({ message: error.message });
+  }
+};
+
+const FASTAPI_URL = "http://127.0.0.1:8000/predict";
+
+export const predictSentiment = async (req, res, next) => {
+  try {
+    console.log("Received request body:", req.body);
+    const { text } = req.body;
+    const response = await axios.post(FASTAPI_URL, { text });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error calling FastAPI:", error);
+    res.status(500).json({ error: "Failed to process request" });
   }
 };
