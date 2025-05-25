@@ -5,6 +5,7 @@ const commentSchema = new mongoose.Schema(
     userId: { type: Schema.Types.ObjectId, ref: "Users" },
     postId: { type: Schema.Types.ObjectId, ref: "Posts" },
     comment: { type: String, required: true },
+    sentiment: { type: String },
     from: { type: String, required: true },
     replies: [
       {
@@ -13,6 +14,7 @@ const commentSchema = new mongoose.Schema(
         from: { type: String },
         replyAt: { type: String },
         comment: { type: String },
+        sentiment: { type: String },
         created_At: { type: Date, default: Date.now() },
         updated_At: { type: Date, default: Date.now() },
         likes: [{ type: String }],

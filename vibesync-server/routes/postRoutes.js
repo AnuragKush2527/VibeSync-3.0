@@ -7,16 +7,14 @@ import {
   getComments,
   getPost,
   getPosts,
+  getSentiments,
   getUserPost,
   likePost,
   likePostComment,
-  predictSentiment,
   replyPostComment,
 } from "../controllers/postController.js";
 
 const router = express.Router();
-
-router.post("/analyze-sentiment", userAuth, predictSentiment);
 
 // crete post
 router.post("/create-post", userAuth, createPost);
@@ -37,5 +35,7 @@ router.post("/reply-comment/:id", userAuth, replyPostComment);
 
 //delete post
 router.delete("/:id", userAuth, deletePost);
+
+router.get("/sentiment/:postId", getSentiments);
 
 export default router;

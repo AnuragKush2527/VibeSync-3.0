@@ -2,6 +2,7 @@ import Comments from "../models/commentModel.js";
 import Posts from "../models/postModel.js";
 import Users from "../models/userModel.js";
 import axios from "axios";
+import { getSentiment } from "../utils/sentimentService.js";
 
 export const createPost = async (req, res, next) => {
   try {
@@ -18,6 +19,12 @@ export const createPost = async (req, res, next) => {
       description,
       image,
     });
+
+    await Users.findByIdAndUpdate(
+      userId,
+      { $push: { posts: post._id } },
+      { new: true, useFindAndModify: false }
+    );
 
     res.status(200).json({
       sucess: true,
@@ -185,6 +192,8 @@ export const likePost = async (req, res, next) => {
       new: true,
     });
 
+    await updatePostSentimentFromComments(id);
+
     res.status(200).json({
       sucess: true,
       message: "successfully",
@@ -259,6 +268,49 @@ export const likePostComment = async (req, res, next) => {
   }
 };
 
+export const updatePostSentimentFromComments = async (postId) => {
+  try {
+    // Populate the post's comments
+    const post = await Posts.findById(postId)
+      .populate({
+        path: "comments",
+        select: "sentiment", // Only select the sentiment field to save resources
+      })
+      .exec();
+
+    if (!post || !post.comments) return; // Ensure the post and comments are valid
+
+    let positiveCount = 0;
+    let negativeCount = 0;
+
+    // Loop through each comment to count sentiments
+    post.comments.forEach((comment) => {
+      if (comment.sentiment === "Positive") positiveCount++;
+      else if (comment.sentiment === "Negative") negativeCount++;
+    });
+
+    let newSentiment = "Neutral"; // Default sentiment
+
+    if (positiveCount > negativeCount) {
+      newSentiment = "Positive";
+    } else if (negativeCount > positiveCount) {
+      newSentiment = "Negative";
+    }
+
+    const likesCount = post.likes?.length || 0;
+    let score = positiveCount - negativeCount + likesCount * 0.1;
+    post.sentiment_score = score;
+
+    // Only update if sentiment changed
+    if (post.sentiment !== newSentiment) {
+      post.sentiment = newSentiment;
+    }
+    await post.save();
+  } catch (err) {
+    console.error("Error updating post sentiment:", err);
+  }
+};
+
 export const commentPost = async (req, res, next) => {
   try {
     const { comment, from } = req.body;
@@ -269,7 +321,15 @@ export const commentPost = async (req, res, next) => {
       return res.status(404).json({ message: "Comment is required." });
     }
 
-    const newComment = new Comments({ comment, from, userId, postId: id });
+    const sentiment = await getSentiment(comment);
+
+    const newComment = new Comments({
+      comment,
+      from,
+      userId,
+      postId: id,
+      sentiment,
+    });
 
     await newComment.save();
 
@@ -282,10 +342,20 @@ export const commentPost = async (req, res, next) => {
       new: true,
     });
 
+    // Add comment ID to user's comments array
+    await Users.findByIdAndUpdate(
+      userId,
+      { $push: { comments: newComment._id } },
+      { new: true }
+    );
+
+    await updatePostSentimentFromComments(id);
+
     res.status(201).json(newComment);
   } catch (error) {
     console.log(error);
     res.status(404).json({ message: error.message });
+    4;
   }
 };
 
@@ -301,12 +371,15 @@ export const replyPostComment = async (req, res, next) => {
   try {
     const commentInfo = await Comments.findById(id);
 
+    const sentiment = await getSentiment(comment);
+
     commentInfo.replies.push({
       comment,
       replyAt,
       from,
       userId,
       created_At: Date.now(),
+      sentiment,
     });
 
     commentInfo.save();
@@ -322,6 +395,21 @@ export const deletePost = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    // Find the post to get the userId
+    const post = await Posts.findById(id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    // Remove post ID from user's posts array
+    await Users.findByIdAndUpdate(
+      post.userId,
+      { $pull: { posts: post._id } },
+      { new: true }
+    );
+
+    // Delete the post
     await Posts.findByIdAndDelete(id);
 
     res.status(200).json({
@@ -334,17 +422,25 @@ export const deletePost = async (req, res, next) => {
   }
 };
 
-const FASTAPI_URL = "http://127.0.0.1:8000/predict";
+export const getSentiments = async (req, res, next) => {
+  const { postId } = req.params;
 
-export const predictSentiment = async (req, res, next) => {
   try {
-    console.log("Received request body:", req.body);
-    const { text } = req.body;
-    const response = await axios.post(FASTAPI_URL, { text });
+    // Fetch the post from the database
+    const post = await Posts.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
 
-    res.json(response.data);
+    let score = post.sentiment_score;
+    let sentiment = post.sentiment;
+
+    return res.status(200).json({
+      score: score,
+      sentiment: sentiment,
+    });
   } catch (error) {
-    console.error("Error calling FastAPI:", error);
-    res.status(500).json({ error: "Failed to process request" });
+    console.error("Error fetching sentiment for post:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };

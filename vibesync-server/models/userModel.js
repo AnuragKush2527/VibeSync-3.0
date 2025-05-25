@@ -28,6 +28,8 @@ const userSchema = new mongoose.Schema(
     friends: [{ type: Schema.Types.ObjectId, ref: "Users" }],
     views: [{ type: String }],
     verified: { type: Boolean, default: false },
+    posts: [{ type: Schema.Types.ObjectId, ref: "Posts" }],
+    comments: [{ type: Schema.Types.ObjectId, ref: "Comments" }],
   },
   { timestamps: true }
 );

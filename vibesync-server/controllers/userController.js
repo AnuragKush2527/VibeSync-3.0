@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Verification from "../models/emailVerification.js";
 import Users from "../models/userModel.js";
+import Posts from "../models/postModel.js";
+import Comments from "../models/commentModel.js";
 import { compareString, createJWT, hashString } from "../utils/index.js";
 import PasswordReset from "../models/passwordreset.js";
 import { resetPasswordLink } from "../utils/sendEmail.js";
@@ -413,5 +415,88 @@ export const suggestedFriends = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(404).json({ message: error.message });
+  }
+};
+
+export const getDashboardContent = async (req, res) => {
+  try {
+    const { userId } = req.body.user;
+
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: No user ID found" });
+    }
+
+    // Count posts by sentiment
+    const postSentiment = await Posts.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$sentiment",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const postStats = {
+      Positive: 0,
+      Neutral: 0,
+      Negative: 0,
+    };
+
+    postSentiment.forEach((item) => {
+      postStats[item._id] = item.count;
+    });
+
+    // Count comments by sentiment
+    const commentSentiment = await Comments.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$sentiment",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const commentStats = {
+      Positive: 0,
+      Neutral: 0,
+      Negative: 0,
+    };
+
+    commentSentiment.forEach((item) => {
+      commentStats[item._id] = item.count;
+    });
+
+    const postSentiments = Object.entries(postStats).map(([name, value]) => ({
+      name,
+      value,
+    }));
+    const commentSentiments = Object.entries(commentStats).map(
+      ([name, value]) => ({ name, value })
+    );
+
+    let overallScore =
+      3 * (postStats.Positive - postStats.Negative) +
+      1.5 * (commentStats.Positive - commentStats.Negative);
+
+    return res.status(200).json({
+      success: true,
+      message: "Dashboard data fetched successfully",
+      data: {
+        postSentiments,
+        commentSentiments,
+        overallScore,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard content:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while fetching dashboard content",
+      error: error.message,
+    });
   }
 };

@@ -4,6 +4,7 @@ import {
   acceptRequest,
   changePassword,
   friendRequest,
+  getDashboardContent,
   getFriendRequest,
   getUser,
   profileViews,
@@ -48,5 +49,7 @@ router.get("/verified", (req, res) => {
 router.get("/resetpassword", (req, res) => {
   res.sendFile(path.join(__dirname, "./views/build", "index.html"));
 });
+
+router.get("/dashboard-analysis", userAuth, getDashboardContent);
 
 export default router;
