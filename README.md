@@ -1,7 +1,8 @@
 # PROJECT SETUP
 
 ## 1. Clone the Repository
-Create a new folder in desktop, open with code editor and run the following command: git clone https://github.com/AnuragKush2527/VibeSync-3.0.git
+Create a new folder in desktop, open with code editor and run the following command:     
+git clone https://github.com/AnuragKush2527/VibeSync-3.0.git
 
 ## 2. Install Dependencies
 
